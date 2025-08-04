@@ -4,7 +4,7 @@ import numpy as np
 from scipy import signal
 from scipy.interpolate import PchipInterpolator
 
-from interpolation import round_phon_key
+from .interpolation import round_phon_key
 
 
 def design_fir_filter_from_phon_levels(phon1: float,

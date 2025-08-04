@@ -7,10 +7,10 @@ import math
 import numpy as np
 import argparse
 
-from iso_data import ISO_FREQ, select_iso
-from interpolation import round_phon_key, create_fine_interpolated_curves
-from design import design_fir_filter_from_phon_levels
-from io_utils import save_filter_to_wav, save_response_csv, _progress_iter
+from .iso_data import ISO_FREQ, select_iso
+from .interpolation import round_phon_key, create_fine_interpolated_curves
+from .design import design_fir_filter_from_phon_levels
+from .io_utils import save_filter_to_wav, save_response_csv, _progress_iter
 
 
 def generate_filters(iso: str,

@@ -1,32 +1,50 @@
-from typing import Iterable, Optional
-import os
+"""IO utilities with proper error handling and pathlib support."""
+
 import csv
 import shutil
+from pathlib import Path
+from typing import Iterable, Optional
 
 import numpy as np
 from scipy.io import wavfile
 
 
-def save_filter_to_wav(coeff: np.ndarray,
-                       filename: str,
-                       fs: int,
-                       channels: int = 1,
-                       sample_format: str = "float32",
-                       normalize_pcm16: bool = True) -> None:
-    """
-    sample_format: 'float32' or 'pcm16'
-    channels: 1 (mono) or 2 (stereo). Stereo duplicates same impulse to both channels.
-    normalize_pcm16: if True, normalize PCM16 to 0 dBFS peak; if False, clip to int16 range.
-    """
-    dirname = os.path.dirname(filename)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
+class IOError(Exception):
+    """Exception raised for IO errors."""
+    pass
 
+
+def save_filter_to_wav(
+    coefficients: np.ndarray,
+    filepath: str | Path,
+    sampling_rate: int,
+    channels: int = 1,
+    sample_format: str = "float32",
+    normalize_pcm16: bool = True
+) -> None:
+    """
+    Save filter coefficients to WAV file.
+    
+    Args:
+        coefficients: Filter coefficients
+        filepath: Output file path
+        sampling_rate: Audio sampling rate in Hz
+        channels: 1 for mono, 2 for stereo
+        sample_format: 'float32' or 'pcm16'
+        normalize_pcm16: Normalize PCM16 to 0 dBFS peak
+    
+    Raises:
+        ValueError: For invalid parameters
+        IOError: For file access issues
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    
     if channels not in (1, 2):
-        raise ValueError("channels must be 1 or 2")
-
+        raise ValueError(f"channels must be 1 or 2, got {channels}")
+    
     if sample_format == "pcm16":
-        arr = coeff.astype(np.float64, copy=False)
+        arr = coefficients.astype(np.float64, copy=False)
         if normalize_pcm16:
             peak = np.max(np.abs(arr)) if arr.size > 0 else 1.0
             if peak == 0:
@@ -34,42 +52,72 @@ def save_filter_to_wav(coeff: np.ndarray,
             arr = arr / peak
         arr = np.clip(arr, -1.0, 1.0)
         pcm = (arr * 32767.0).astype(np.int16)
-        if channels == 2:
-            # Write as (N, 2) shaped array to indicate true stereo to wavfile.write
-            stereo = np.stack((pcm, pcm), axis=-1)
-            data_to_write = stereo
-        else:
-            data_to_write = pcm
-        wavfile.write(filename, fs, data_to_write)
+        data_to_write = _create_multichannel_data(pcm, channels)
+        wavfile.write(str(filepath), sampling_rate, data_to_write)
+    
     elif sample_format == "float32":
-        coeff32 = coeff.astype(np.float32, copy=False)
-        if channels == 2:
-            # Write as (N, 2) shaped array to indicate true stereo to wavfile.write
-            stereo = np.stack((coeff32, coeff32), axis=-1)
-            data_to_write = stereo
-        else:
-            data_to_write = coeff32
-        wavfile.write(filename, fs, data_to_write)
+        coeff32 = coefficients.astype(np.float32, copy=False)
+        data_to_write = _create_multichannel_data(coeff32, channels)
+        wavfile.write(str(filepath), sampling_rate, data_to_write)
+    
     else:
         raise ValueError("Unsupported sample format. Use 'float32' or 'pcm16'.")
 
 
-def save_response_csv(freqs: np.ndarray, gains: np.ndarray, filename: str) -> None:
-    dirname = os.path.dirname(filename)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
-    with open(filename, 'w', newline='') as f:
-        w = csv.writer(f)
-        w.writerow(["Frequency_Hz", "Gain_linear"])
-        for fr, gn in zip(freqs, gains):
-            w.writerow([float(fr), float(gn)])
+def _create_multichannel_data(data: np.ndarray, channels: int) -> np.ndarray:
+    """Create multi-channel data array for WAV export."""
+    if channels == 2:
+        # Create stereo array
+        return np.stack([data, data], axis=-1)
+    return data
 
 
-def _progress_iter(iterable: Iterable[float], total: Optional[int], enabled: bool, desc: str = "") -> Iterable[float]:
+def save_response_csv(
+    frequencies: np.ndarray,
+    gains: np.ndarray,
+    filepath: str | Path
+) -> None:
+    """
+    Save frequency response data to CSV.
+    
+    Args:
+        frequencies: Array of frequencies in Hz
+        gains: Array of gains (linear scale)
+        filepath: Output file path
+        
+    Raises:
+        IOError: For file access issues
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        with filepath.open('w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Frequency_Hz", "Gain_linear"])
+            for freq, gain in zip(frequencies, gains):
+                writer.writerow([float(freq), float(gain)])
+    except Exception as e:
+        raise IOError(f"Failed to save CSV file {filepath}: {e}")
+
+
+def _progress_iter(
+    iterable: Iterable[float],
+    total: Optional[int],
+    enabled: bool,
+    desc: str = ""
+) -> Iterable[float]:
     """
     Minimal dependency-free progress indicator.
-    Prints a single-line progress with counts and percentage, updated in place.
-    Falls back to no-op if not enabled or total is None.
+    
+    Args:
+        iterable: Items to iterate over
+        total: Total number of items
+        enabled: Whether to show progress
+        desc: Description text
+        
+    Yields:
+        Items from the iterable
     """
     if not enabled or total is None or total <= 0:
         for x in iterable:
@@ -79,15 +127,22 @@ def _progress_iter(iterable: Iterable[float], total: Optional[int], enabled: boo
     width = 30  # progress bar width
     count = 0
     term_cols = shutil.get_terminal_size((80, 20)).columns
-    for x in iterable:
-        count += 1
-        pct = count / total
-        filled = int(pct * width)
-        bar = "#" * filled + "-" * (width - filled)
-        msg = f"{desc} [{bar}] {count}/{total} ({pct*100:5.1f}%)"
-        if len(msg) > term_cols - 1:
-            msg = msg[: term_cols - 1]
-        print("\r" + msg, end="", flush=True)
-        yield x
-    print("\r" + f"{desc} [{'#'*width}] {total}/{total} (100.0%)" + " " * max(0, term_cols - len(desc) - width - 20), flush=True)
-    print()
+    
+    try:
+        for x in iterable:
+            count += 1
+            pct = count / total
+            filled = int(pct * width)
+            bar = "#" * filled + "-" * (width - filled)
+            msg = f"{desc} [{bar}] {count}/{total} ({pct*100:5.1f}%)"
+            
+            if len(msg) > term_cols - 1:
+                msg = msg[: term_cols - 1]
+                
+            print("\r" + msg, end="", flush=True)
+            yield x
+            
+    finally:
+        # Ensure progress bar completes and moves to next line
+        print("\r" + f"{desc} [{'#'*width}] {total}/{total} (100.0%)" + " " * max(0, term_cols - len(desc) - width - 20), flush=True)
+        print()

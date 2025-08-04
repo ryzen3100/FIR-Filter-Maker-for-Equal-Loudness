@@ -41,10 +41,8 @@ def create_fine_interpolated_curves(curves: Dict[int, List[float]],
     Optionally restrict to a [start, end] phon range to save time/memory.
     """
     fine_curves: Dict[float, List[float]] = {}
-    # Merge curves with primaries to ensure all 10-phon steps exist
-    primary = create_primary_interpolated_curves(curves)
-    base = {**curves, **primary}
-    base_int_keys: Dict[int, List[float]] = {int(k): v for k, v in base.items()}
+    # Use curves directly - no primary interpolation for Fletcher-Munson
+    base_int_keys: Dict[int, List[float]] = {int(k): v for k, v in curves.items()}
 
     # Determine iteration range
     start = 0.0
@@ -57,24 +55,33 @@ def create_fine_interpolated_curves(curves: Dict[int, List[float]],
 
     # Integer step count to avoid drift
     n_steps = int(round((end - start) / step))
+    
+    # Get sorted available phon levels
+    available_phons = sorted(base_int_keys.keys())
+    
     for i in range(n_steps + 1):
         phon = start + i * step
         rounded_phon = round_phon_key(phon)
-        base_key = int(rounded_phon)
-        if base_key in base_int_keys and abs(rounded_phon - base_key) < 1e-9:
-            fine_curves[rounded_phon] = [float(x) for x in base_int_keys[base_key]]
+        
+        # Find nearest available phon levels for interpolation
+        if rounded_phon in base_int_keys:
+            fine_curves[rounded_phon] = [float(x) for x in base_int_keys[rounded_phon]]
         else:
-            interpolated_curve: List[float] = []
-            lower_phon = int(math.floor(rounded_phon / 10.0) * 10)
-            upper_phon = min(lower_phon + 10, 100)
-            weight = (rounded_phon - lower_phon) / 10.0
-            lower_curve = base_int_keys[lower_phon]
-            upper_curve = base_int_keys[upper_phon]
-            for idx, _freq in enumerate(iso_freq):
-                # direct indexing (iso_freq and curves share indices)
-                lower_val = lower_curve[idx]
-                upper_val = upper_curve[idx]
-                interpolated_value = lower_val * (1 - weight) + upper_val * weight
-                interpolated_curve.append(float(np.round(interpolated_value, 4)))
-            fine_curves[rounded_phon] = interpolated_curve
+            # Find bracketing phon levels
+            lower_phon = max([p for p in available_phons if p <= rounded_phon], default=available_phons[0])
+            upper_phon = min([p for p in available_phons if p >= rounded_phon], default=available_phons[-1])
+            
+            if lower_phon == upper_phon:
+                fine_curves[rounded_phon] = [float(x) for x in base_int_keys[lower_phon]]
+            else:
+                weight = (rounded_phon - lower_phon) / (upper_phon - lower_phon)
+                lower_curve = base_int_keys[lower_phon]
+                upper_curve = base_int_keys[upper_phon]
+                interpolated_curve = []
+                for idx, _freq in enumerate(iso_freq):
+                    lower_val = lower_curve[idx]
+                    upper_val = upper_curve[idx]
+                    interpolated_value = lower_val * (1 - weight) + upper_val * weight
+                    interpolated_curve.append(float(np.round(interpolated_value, 4)))
+                fine_curves[rounded_phon] = interpolated_curve
     return fine_curves

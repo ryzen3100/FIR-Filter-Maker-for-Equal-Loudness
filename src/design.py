@@ -70,6 +70,8 @@ def compute_relative_gains(
         raise ValueError("iso_freq must contain 1000 Hz reference")
     
     reference_index = iso_freq.index(1000)
+    if reference_index >= len(db_diff):
+        raise ValueError(f"Reference index {reference_index} out of bounds for db_diff length {len(db_diff)}")
     reference_db_diff = db_diff[reference_index]
     relative_gains_db = db_diff - reference_db_diff
     

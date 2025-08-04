@@ -8,6 +8,7 @@ import numpy as np
 from .config import FilterConfig, PhonRangeConfig
 from .design import design_fir_filter_from_phon_levels
 from .iso_data import ISO_FREQ, select_iso
+from .fletcher_data import get_fletcher_munson_data
 from .interpolation import create_fine_interpolated_curves, round_phon_key
 from .io_utils import save_filter_to_wav, save_response_csv, _progress_iter
 
@@ -22,14 +23,20 @@ class FilterGenerator:
         self.fine_curves = None
         
     def initialize_curves(self) -> None:
-        """Load and prepare ISO curves once."""
-        self.curves = select_iso(self.config.iso_version)
+        """Load and prepare curves based on selected curve type."""
+        if self.config.curve_type == "fletcher":
+            fletcher_freq, fletcher_curves = get_fletcher_munson_data()
+            self.curves = fletcher_curves
+            self.freq_points = fletcher_freq
+        else:
+            self.curves = select_iso(self.config.iso_version)
+            self.freq_points = ISO_FREQ
         
         # Create fine interpolation curves on-demand with memory optimization
         s = round_phon_key(self.phon_config.start_phon)
         e = round_phon_key(self.phon_config.end_phon)
         self.fine_curves = create_fine_interpolated_curves(
-            self.curves, ISO_FREQ, step=0.1, needed_range=(s, e)
+            self.curves, self.freq_points, step=0.1, needed_range=(s, e)
         )
         
     def generate_single_filter(self, source_phon: float, target_phon: float) -> np.ndarray:
@@ -38,13 +45,16 @@ class FilterGenerator:
             self.initialize_curves()
             
         return design_fir_filter_from_phon_levels(
-            source_phon, target_phon, self.fine_curves, ISO_FREQ, self.config
+            source_phon, target_phon, self.fine_curves, self.freq_points, self.config
         )
         
     def generate_file_name(self, source_phon: float, target_phon: float) -> str:
         """Generate consistent file name for filter."""
-        iso_tag = f"ISO{self.config.iso_version}"
-        return f"{iso_tag}_fs{self.config.fs}_t{self.config.numtaps}_{source_phon:.1f}-{target_phon:.1f}_filter.wav"
+        if self.config.curve_type == "fletcher":
+            curve_tag = "FLETCHER"
+        else:
+            curve_tag = f"ISO{self.config.iso_version}"
+        return f"{curve_tag}_fs{self.config.fs}_t{self.config.numtaps}_{source_phon:.1f}-{target_phon:.1f}_filter.wav"
         
     def process_single_filter(self, source_phon: float, target_phon: float) -> None:
         """Process a single filter generation."""
@@ -75,11 +85,11 @@ class FilterGenerator:
         from .design import compute_relative_gains, prepare_target_response
         
         relative_gains_db = compute_relative_gains(
-            self.fine_curves, source_phon, target_phon, ISO_FREQ,
+            self.fine_curves, source_phon, target_phon, self.freq_points,
             self.config.use_smoothing, self.config.smooth_window
         )
         
-        freqs, gains = prepare_target_response(relative_gains_db, ISO_FREQ, self.config)
+        freqs, gains = prepare_target_response(relative_gains_db, self.freq_points, self.config)
         
         csv_path = self.config.output_dir / f"{wav_path.stem.replace('_filter', '_response')}.csv"
         save_response_csv(freqs, gains, str(csv_path))

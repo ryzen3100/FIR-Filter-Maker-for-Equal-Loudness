@@ -7,7 +7,7 @@ A modern Python CLI tool that generates Finite Impulse Response (FIR) filters to
 Perfect for use with Equalizer APO, APO-loudness, Easy Convolver, or other convolution-based EQ systems.
 
 ## Features
-- **ISO Standards Support**: Choose between ISO 226:2003 or ISO 226:2023 data
+- **Multiple Standards**: Choose between ISO 226:2003/2023 or Fletcher-Munson equal-loudness contours
 - **Flexible Range Generation**: Generate filters for any phon level range
 - **Multiple Formats**: WAV output in float32 or int16 PCM formats
 - **Stereo Support**: Mono or stereo channel output
@@ -32,6 +32,9 @@ pip install numpy scipy
 # Generate single filter (40→50 phon transition)
 python fir_loudness_cli.py --start-phon 40 --end-phon 50
 
+# Use Fletcher-Munson curves instead of ISO
+python fir_loudness_cli.py --start-phon 40 --end-phon 50 --fletcher
+
 # Custom sampling rate and filter length
 python fir_loudness_cli.py --start-phon 60 --end-phon 80 --fs 44100 --taps 8192
 
@@ -54,6 +57,7 @@ python fir_loudness_cli.py --start-phon 50 --end-phon 90 --step-phon 2.5 --expor
 | `--channels` | Output channels (1=mono, 2=stereo) | 1 |
 | `--format` | Sample format (float32/pcm16) | float32 |
 | `--iso` | ISO standard (2003/2023) | 2023 |
+| `--fletcher` | Use Fletcher-Munson contours (mutually exclusive with --iso) | False |
 | `--out-dir` | Output directory | output |
 
 ### Advanced Options
@@ -101,9 +105,10 @@ pip install numpy scipy
 Filter files are named with metadata:
 ```
 ISO2023_fs48000_t65536_60.0-75.0_filter.wav
+FLETCHER_fs48000_t1024_40.0-60.0_filter.wav
 ```
 Where:
-- `ISO2023`: ISO standard used
+- `ISO2023`/`FLETCHER`: Curve standard used
 - `fs48000`: Sampling rate (48000 Hz)
 - `t65536`: Filter length (65536 taps)
 - `60.0-75.0`: Source → Target phon levels
@@ -132,9 +137,10 @@ src/
 ├── business.py          # Core filtration logic
 ├── config.py            # Configuration classes
 ├── design.py            # FIR filter design
-├── interpolation.py     # ISO curve interpolation
+├── interpolation.py     # Curve interpolation
 ├── io_utils.py          # File I/O with pathlib
 ├── iso_data.py          # ISO contour data
+├── fletcher_data.py     # Fletcher-Munson contour data
 └── validation.py        # Input validation & security
 ```
 
@@ -152,6 +158,7 @@ GNU General Public License version 3 (GPLv3)
 
 ## Data Sources
 - ISO 226:2003/2023 equal-loudness contours
+- Fletcher-Munson equal-loudness contours (classic 1933 data)
 - Missing 20000 Hz and 16000 Hz frequencies in 2023 standard preserved from 2003
 
 ## Support

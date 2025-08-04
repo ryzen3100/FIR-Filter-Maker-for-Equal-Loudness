@@ -138,6 +138,15 @@ def validate_iso_version(iso: str) -> str:
     return iso
 
 
+def validate_curve_type(curve: str) -> str:
+    """Validate curve type parameter."""
+    curve = str(curve).strip().lower()
+    valid_curves = {"iso2003", "iso2023", "fletcher"}
+    if curve not in valid_curves:
+        raise ValidationError(f"Curve type must be one of {valid_curves}, got {curve}")
+    return curve
+
+
 def validate_grid_points(points: int) -> int:
     """Validate grid points parameter."""
     if not isinstance(points, int):

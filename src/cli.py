@@ -16,10 +16,15 @@ def create_parser() -> argparse.ArgumentParser:
         description="FIR filter generator for equal-loudness transitions (ISO226)"
     )
     
-    # Basic parameters
-    parser.add_argument(
+    # Curve selection (mutually exclusive)
+    curve_group = parser.add_mutually_exclusive_group()
+    curve_group.add_argument(
         "--iso", choices=["2003", "2023"], default="2023",
         help="Select ISO dataset (default: 2023)"
+    )
+    curve_group.add_argument(
+        "--fletcher", action="store_true",
+        help="Use Fletcher-Munson equal-loudness contours instead of ISO"
     )
     parser.add_argument(
         "--fs", type=int, default=48000,
@@ -101,11 +106,20 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        # Determine curve type
+        if args.fletcher:
+            curve_type = "fletcher"
+            iso_version = "2023"  # Default for compatibility
+        else:
+            curve_type = f"iso{args.iso}"
+            iso_version = args.iso
+
         # Create configuration objects
         filter_config = FilterConfig.from_cli_args(
             fs=args.fs,
             numtaps=args.taps,
-            iso=args.iso,
+            iso=iso_version,
+            curve_type=curve_type,
             channels=args.channels,
             sample_format=args.sample_format,
             dc_gain_mode=args.dc_gain_mode,

@@ -8,7 +8,7 @@ from .validation import (
     validate_sampling_rate, validate_filter_taps, validate_phon_level,
     validate_step_size, validate_channels, validate_sample_format,
     validate_dc_gain_mode, validate_nyq_gain_db, validate_iso_version,
-    validate_grid_points, validate_directory_path
+    validate_curve_type, validate_grid_points, validate_directory_path
 )
 
 
@@ -19,6 +19,7 @@ class FilterConfig:
     fs: int
     numtaps: int
     iso_version: str
+    curve_type: str
     channels: int
     sample_format: str
     dc_gain_mode: str
@@ -35,6 +36,7 @@ class FilterConfig:
         self.fs = validate_sampling_rate(self.fs)
         self.numtaps = validate_filter_taps(self.numtaps)
         self.iso_version = validate_iso_version(self.iso_version)
+        self.curve_type = validate_curve_type(self.curve_type)
         self.channels = validate_channels(self.channels)
         self.sample_format = validate_sample_format(self.sample_format)
         self.dc_gain_mode = validate_dc_gain_mode(self.dc_gain_mode)
@@ -53,6 +55,7 @@ class FilterConfig:
         fs: int,
         numtaps: int,
         iso: str,
+        curve_type: str,
         channels: int,
         sample_format: str,
         dc_gain_mode: str,
@@ -69,6 +72,7 @@ class FilterConfig:
             fs=fs,
             numtaps=numtaps,
             iso_version=iso,
+            curve_type=curve_type,
             channels=channels,
             sample_format=sample_format,
             dc_gain_mode=dc_gain_mode,
@@ -87,6 +91,7 @@ class FilterConfig:
             'fs': self.fs,
             'numtaps': self.numtaps,
             'iso_version': self.iso_version,
+            'curve_type': self.curve_type,
             'channels': self.channels,
             'sample_format': self.sample_format,
             'dc_gain_mode': self.dc_gain_mode,

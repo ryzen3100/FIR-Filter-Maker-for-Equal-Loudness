@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# Ignore all CSV files
+*.csv
 
 # Audio artifacts
 *.wav

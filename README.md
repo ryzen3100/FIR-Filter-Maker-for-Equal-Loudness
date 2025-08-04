@@ -1,28 +1,147 @@
 # FIR-Filter-Maker-for-Equal-Loudness
-Generating FIR filters to balance tones at low volumes.
+Generating FIR filters to balance tones at low volumes using ISO 226 equal-loudness contours.
 
 ## Overview
-This script, FIR_LOUDNESS.py, is designed to generate Finite Impulse Response (FIR) filters based on ISO 226:2003 equal-loudness contours. The primary purpose is to create EQ adjustments that maintain a consistent tonal balance at lower volume levels, typically in the range of 60 to 80 dB. 2761 WAV-files can be used in Equalizer APO <https://equalizerapo.com> and APO-loudness <https://github.com/grisys83/APO-Loudness>, or other convolution hosts such as Easy Convolver <https://www.genuinesoundware.com/?a=showproduct&b=49>.
+A modern Python CLI tool that generates Finite Impulse Response (FIR) filters to maintain consistent tonal balance across different volume levels. Uses ISO 226:2003/2023 equal-loudness contours to create EQ adjustments that compensate for human hearing characteristics at lower volumes.
+
+Perfect for use with Equalizer APO, APO-loudness, Easy Convolver, or other convolution-based EQ systems.
+
+## Features
+- **ISO Standards Support**: Choose between ISO 226:2003 or ISO 226:2023 data
+- **Flexible Range Generation**: Generate filters for any phon level range
+- **Multiple Formats**: WAV output in float32 or int16 PCM formats
+- **Stereo Support**: Mono or stereo channel output
+- **Advanced Tuning**: Configurable smoothing, DC gain, and Nyquist response
+- **Export Options**: Filter response CSV export available
+- **Production Ready**: Comprehensive input validation and security
+
+## Quick Start
+
+### Installation
+```bash
+pip install numpy scipy
+```
+
+### Basic Usage
+```bash
+# Generate single filter (40→50 phon transition)
+python fir_loudness_cli.py --start-phon 40 --end-phon 50
+
+# Custom sampling rate and filter length
+python fir_loudness_cli.py --start-phon 60 --end-phon 80 --fs 44100 --taps 8192
+
+# Stereo output with fine resolution
+python fir_loudness_cli.py --start-phon 35 --end-phon 85 --step-phon 0.5 --channels 2
+
+# Batch generation with CSV export
+python fir_loudness_cli.py --start-phon 50 --end-phon 90 --step-phon 2.5 --export-csv
+```
+
+## CLI Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--start-phon` | Source phon level (0-100) | **Required** |
+| `--end-phon` | Target phon level (0-100) | **Required** |
+| `--step-phon` | Step size for start phon (0, 10] | 0.1 |
+| `--fs` | Sampling rate (Hz) | 48000 |
+| `--taps` | Filter length (4-262144) | 65536 |
+| `--channels` | Output channels (1=mono, 2=stereo) | 1 |
+| `--format` | Sample format (float32/pcm16) | float32 |
+| `--iso` | ISO standard (2003/2023) | 2023 |
+| `--out-dir` | Output directory | output |
+
+### Advanced Options
+- `--smooth-db`: Enable smoothing across ISO points
+- `--smooth-window`: Smoothing window size (odd integer)
+- `--dc-gain-mode`: DC gain control (first_iso/unity)
+- `--nyq-gain-db`: Nyquist gain control (dB)
+- `--grid-points`: Frequency grid resolution
+- `--export-csv`: Export response data as CSV
+- `--export-fir-resp`: Export actual FIR response data
+
+## Examples
+
+### Simple Use Case
+Generate a filter to compensate when listening at 70dB while the content was mastered at 85dB:
+```bash
+python fir_loudness_cli.py --start-phon 70 --end-phon 85
+```
+
+### Batch Generation
+Create filters for every 2.5 phon step from 45 to 85:
+```bash
+python fir_loudness_cli.py --start-phon 45 --end-phon 85 --step-phon 2.5
+```
+
+### Custom Parameters
+Generate with specific technical requirements:
+```bash
+python fir_loudness_cli.py \
+  --start-phon 60 \
+  --end-phon 75 \
+  --fs 44100 \
+  --taps 16384 \
+  --channels 2 \
+  --format pcm16 \
+  --out-dir my_filters
+```
 
 ## Dependencies
-To run this script, you need the following Python libraries:
+```bash
+pip install numpy scipy
+```
 
-numpy
-scipy
-wave
+## Output
+Filter files are named with metadata:
+```
+ISO2023_fs48000_t65536_60.0-75.0_filter.wav
+```
+Where:
+- `ISO2023`: ISO standard used
+- `fs48000`: Sampling rate (48000 Hz)
+- `t65536`: Filter length (65536 taps)
+- `60.0-75.0`: Source → Target phon levels
 
-These can be installed via pip using the command: pip install numpy scipy wave.
+## Security & Validation
+All parameters are validated with:
+- File path sanitization preventing directory traversal
+- Numeric bounds checking (phon 0-100, sampling rate 8k-192kHz)
+- Input type and range validation
+- Zero division protection and NaN handling
 
-## Implementation Details
-Executing python FIR_LOUDNESS.py initiates the script to generate a total of 2761 WAV files, starting from 60.0-80.0_filter.wav to 90.0-90.0_filter.wav. The numbers before and after the '-' in the file names represent the two phon curves used to calculate the gain for creating the FIR filters. The script automatically generates 400 curves between 60.0 and 100.0 phon based on the ISO 226:2003 standard. It then normalizes these curves at 1 kHz and calculates the difference to determine the gain values for the EQ FIR filter. Cubic spline interpolation is also employed for smoother transitions between frequencies.
+## Usage in Equalizer Applications
 
-If running the python script seems cumbersome, you can download the pre-generated WAV format FIR filters from the releases section.
+### Equalizer APO
+1. Copy generated WAV files to Equalizer APO config directory
+2. Reference filters by phon level differences
+3. Use with smart gain switching or manual control
 
-Note: The 'FIR_LOUDNESS_2023.py' script utilizes data from ISO 226:2023 for equal-loudness contours. However, it references the 2003 version for 16000 Hz and 20000 Hz data, as the 2023 edition lacks information for these frequencies.
+### APO-Loudness
+Directly compatible with APO-Loudness convolution setup.
 
-## License and Acknowledgments
-This script is released under the GNU General Public License version 3 (GPLv3).
-The data for ISO 226:2003 equal-loudness contours was sourced from Andrew Hunt's repository at <https://github.com/andrewjhunt/equal-loudness>. We deeply appreciate it.
+## Project Structure
+```
+src/
+├── cli.py               # Main CLI interface
+├── business.py          # Core filtration logic
+├── config.py            # Configuration classes
+├── design.py            # FIR filter design
+├── interpolation.py     # ISO curve interpolation
+├── io_utils.py          # File I/O with pathlib
+├── iso_data.py          # ISO contour data
+└── validation.py        # Input validation & security
+```
 
-## Contact Information
-For questions or feedback regarding this script, please contact 136304138+grisys83@users.noreply.github.com
+## Legacy Information
+The original deprecated scripts (`FIR_LOUDNESS.py`, `FIR_LOUDNESS_2023.py`) have been replaced with the modern `fir_loudness_cli.py` interface. All functionality is preserved but with improved CLI, security, and performance.
+
+## License
+GNU General Public License version 3 (GPLv3)
+
+## Data Sources
+- ISO 226:2003/2023 equal-loudness contours
+- Missing 20000 Hz and 16000 Hz frequencies in 2023 standard preserved from 2003
+
+## Support
+For questions or feedback: 136304138+grisys83@users.noreply.github.com

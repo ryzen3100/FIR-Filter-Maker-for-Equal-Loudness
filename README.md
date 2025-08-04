@@ -136,6 +136,12 @@ src/
 ## Legacy Information
 The original deprecated scripts (`FIR_LOUDNESS.py`, `FIR_LOUDNESS_2023.py`) have been replaced with the modern `fir_loudness_cli.py` interface. All functionality is preserved but with improved CLI, security, and performance.
 
+## Original Author & Repository
+This project was originally created by **grisys83** and is based on the original repository at:  
+**https://github.com/grisys83/FIR-Filter-Maker-for-Equal-Loudness**
+
+This repository contains refactored and enhanced versions of the original code, maintaining the same core functionality while adding security, performance, and architecture improvements.
+
 ## License
 GNU General Public License version 3 (GPLv3)
 
@@ -144,4 +150,4 @@ GNU General Public License version 3 (GPLv3)
 - Missing 20000 Hz and 16000 Hz frequencies in 2023 standard preserved from 2003
 
 ## Support
-For questions or feedback: 136304138+grisys83@users.noreply.github.com
+For questions about the original project: 136304138+grisys83@users.noreply.github.com

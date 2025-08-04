@@ -19,6 +19,11 @@ Perfect for use with Equalizer APO, APO-loudness, Easy Convolver, or other convo
 
 ### Installation
 ```bash
+# Clone this repository
+git clone https://github.com/ryzen3100/FIR-Filter-Maker-for-Equal-Loudness.git
+cd FIR-Filter-Maker-for-Equal-Loudness
+
+# Install dependencies
 pip install numpy scipy
 ```
 

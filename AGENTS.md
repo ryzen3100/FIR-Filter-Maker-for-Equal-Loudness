@@ -2,14 +2,17 @@
 
 ## Build/Test Commands
 ```bash
-# Quick validation test
+# Single test run
 python fir_loudness_cli.py --start-phon 40 --end-phon 50 --fs 48000 --taps 1024
 
-# Check imports & CLI
+# Module validation
+python -c "import src.cli, src.business, src.config, src.validation"
+
+# CLI help check
 python -c "from src.cli import create_parser; p=create_parser(); p.parse_args(['--help'])"
 
-# Validate all modules
-python -c "import src.cli, src.business, src.config, src.validation"
+# Install deps
+pip install numpy scipy
 ```
 
 ## Code Style

@@ -9,6 +9,7 @@ from datetime import datetime
 
 from .config import FilterConfig, PhonRangeConfig, LoggingConfig
 from .services import FilterService
+from .benchmark import FIRBenchmark
 from .validation import ValidationError
 
 
@@ -37,11 +38,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Number of FIR taps (default: 65536)"
     )
     parser.add_argument(
-        "--start-phon", type=float, required=True,
+        "--start-phon", type=float,
         help="Start phon level (e.g., 60.0)"
     )
     parser.add_argument(
-        "--end-phon", type=float, required=True,
+        "--end-phon", type=float,
         help="End phon level (e.g., 85.0)"
     )
     parser.add_argument(
@@ -89,6 +90,12 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--export-fir-resp", action="store_true",
         help="Export the designed FIR magnitude response as CSV"
+    )
+    
+    # Benchmark mode
+    parser.add_argument(
+        "--benchmark", action="store_true",
+        help="Run performance benchmark to estimate maximum taps size"
     )
     
     # Logging options
@@ -142,7 +149,17 @@ class CLIParser:
     def parse_and_validate_args(argv=None):
         """Parse and validate CLI arguments."""
         parser = create_parser()
-        return parser.parse_args(argv)
+        args = parser.parse_args(argv)
+        
+        # Skip validation for benchmark mode
+        if args.benchmark:
+            return args
+            
+        # Validate required arguments for normal mode
+        if args.start_phon is None or args.end_phon is None:
+            parser.error("--start-phon and --end-phon are required")
+            
+        return args
     
     @staticmethod
     def determine_curve_type(args) -> tuple[str, str]:
@@ -211,6 +228,11 @@ def main(argv=None) -> int:
     try:
         # Parse arguments
         args = CLIParser.parse_and_validate_args(argv)
+        
+        # Handle benchmark mode
+        if args.benchmark:
+            benchmark = FIRBenchmark()
+            return benchmark.execute()
         
         # Create configurations
         curve_type, iso_version = CLIParser.determine_curve_type(args)

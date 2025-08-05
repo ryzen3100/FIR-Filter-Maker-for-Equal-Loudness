@@ -3,6 +3,7 @@
 import os
 import pathlib
 from typing import Union
+from abc import ABC, abstractmethod
 
 
 class ValidationError(ValueError):
@@ -10,49 +11,106 @@ class ValidationError(ValueError):
     pass
 
 
+# Validation constants
+SAMPLING_RATE_MIN = 8000
+SAMPLING_RATE_MAX = 192000
+FILTER_TAPS_MIN = 4
+FILTER_TAPS_MAX = 2**18  # 262144
+PHON_LEVEL_MIN = 0.0
+PHON_LEVEL_MAX = 100.0
+STEP_SIZE_MIN = 0.0
+STEP_SIZE_MAX = 10.0
+CHANNELS_MIN = 1
+CHANNELS_MAX = 2
+SMOOTH_WINDOW_MIN = 1
+SMOOTH_WINDOW_MAX = 15
+GRID_POINTS_MIN = 64
+GRID_POINTS_MAX = 8192
+NYQUIST_GAIN_MIN = -120.0
+NYQUIST_GAIN_MAX = 120.0
+
+
+class Validator(ABC):
+    """Base class for parameter validation."""
+    
+    @abstractmethod
+    def validate(self, value, param_name: str = "parameter"):
+        """Validate a parameter value."""
+        pass
+
+
+class RangeValidator(Validator):
+    """Validator for numeric ranges."""
+    
+    def __init__(self, min_val, max_val, value_type=None):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.value_type = value_type
+    
+    def validate(self, value, param_name: str = "parameter"):
+        if self.value_type and not isinstance(value, self.value_type):
+            raise ValidationError(
+                f"{param_name} must be a {self.value_type.__name__}, got {type(value)}"
+            )
+        if value < self.min_val or value > self.max_val:
+            raise ValidationError(
+                f"{param_name} {value} is out of valid range {self.min_val}-{self.max_val}"
+            )
+        return value
+
+
 def validate_sampling_rate(fs: int) -> int:
     """Validate sampling rate parameter."""
-    if not isinstance(fs, int):
-        raise ValidationError(f"Sampling rate must be an integer, got {type(fs)}")
-    if fs < 8000 or fs > 192000:
-        raise ValidationError(f"Sampling rate {fs} Hz is out of valid range 8000-192000")
-    return fs
+    validator = RangeValidator(SAMPLING_RATE_MIN, SAMPLING_RATE_MAX, int)
+    return validator.validate(fs, "Sampling rate")
 
 
 def validate_filter_taps(numtaps: int) -> int:
     """Validate FIR filter taps parameter."""
-    if not isinstance(numtaps, int):
-        raise ValidationError(f"Filter taps must be an integer, got {type(numtaps)}")
-    if numtaps < 4 or numtaps > 2**18:
-        raise ValidationError(f"Filter taps {numtaps} is out of valid range 4-262144")
-    return numtaps
+    validator = RangeValidator(FILTER_TAPS_MIN, FILTER_TAPS_MAX, int)
+    return validator.validate(numtaps, "Filter taps")
+
+
+class ChoiceValidator(Validator):
+    """Validator for choices/enum values."""
+    
+    def __init__(self, valid_choices, case_sensitive=False):
+        self.valid_choices = set(valid_choices)
+        self.case_sensitive = case_sensitive
+    
+    def validate(self, value, param_name: str = "parameter"):
+        if not self.case_sensitive:
+            value_str = str(value).lower()
+            valid_strs = {str(c).lower() for c in self.valid_choices}
+            
+            for choice in self.valid_choices:
+                if str(choice).lower() == value_str:
+                    return choice
+        else:
+            if str(value) in {str(c) for c in self.valid_choices}:
+                return str(value)
+        
+        raise ValidationError(
+            f"{param_name} must be one of {list(self.valid_choices)}, got {value}"
+        )
 
 
 def validate_phon_level(phon: float, name: str = "Phon level") -> float:
     """Validate phon level parameter."""
-    if not isinstance(phon, (int, float)):
-        raise ValidationError(f"{name} must be a number, got {type(phon)}")
-    if phon < 0 or phon > 100:
-        raise ValidationError(f"{name} {phon} is out of valid range 0-100")
-    return float(phon)
+    validator = RangeValidator(PHON_LEVEL_MIN, PHON_LEVEL_MAX, (int, float))
+    return validator.validate(phon, name)
 
 
 def validate_step_size(step: float) -> float:
     """Validate phon step size parameter."""
-    if not isinstance(step, (int, float)):
-        raise ValidationError(f"Step size must be a number, got {type(step)}")
-    if step <= 0 or step > 10:
-        raise ValidationError(f"Step size {step} is out of valid range (0, 10]")
-    return float(step)
+    validator = RangeValidator(STEP_SIZE_MIN, STEP_SIZE_MAX, (int, float))
+    return validator.validate(step, "Step size")
 
 
 def validate_channels(channels: int) -> int:
     """Validate channels parameter."""
-    if not isinstance(channels, int):
-        raise ValidationError(f"Channels must be an integer, got {type(channels)}")
-    if channels not in (1, 2):
-        raise ValidationError(f"Channels must be 1 or 2, got {channels}")
-    return channels
+    validator = ChoiceValidator([1, 2])
+    return validator.validate(channels, "Channels")
 
 
 def validate_file_path(path: Union[str, pathlib.Path]) -> pathlib.Path:
@@ -102,55 +160,57 @@ def validate_directory_path(path: Union[str, pathlib.Path], create: bool = True)
     return path
 
 
+class OptionalRangeValidator(Validator):
+    """Validator for optional numeric ranges."""
+    
+    def __init__(self, min_val, max_val, allow_none=True):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.allow_none = allow_none
+    
+    def validate(self, value, param_name: str = "parameter"):
+        if value is None and self.allow_none:
+            return None
+        
+        value = float(value)
+        if value < self.min_val or value > self.max_val:
+            raise ValidationError(
+                f"{param_name} {value} is out of valid range [{self.min_val}, {self.max_val}]"
+            )
+        return value
+
+
 def validate_sample_format(format_str: str) -> str:
     """Validate sample format parameter."""
-    format_str = str(format_str).lower()
-    if format_str not in {"float32", "pcm16"}:
-        raise ValidationError(f"Sample format must be 'float32' or 'pcm16', got {format_str}")
-    return format_str
+    validator = ChoiceValidator(["float32", "pcm16"])
+    return validator.validate(format_str, "Sample format")
 
 
 def validate_dc_gain_mode(mode: str) -> str:
     """Validate DC gain mode parameter."""
-    mode = str(mode).lower()
-    if mode not in {"first_iso", "unity"}:
-        raise ValidationError(f"DC gain mode must be 'first_iso' or 'unity', got {mode}")
-    return mode
+    validator = ChoiceValidator(["first_iso", "unity"])
+    return validator.validate(mode, "DC gain mode")
 
 
 def validate_nyq_gain_db(nyq_gain: Union[float, None]) -> Union[float, None]:
     """Validate Nyquist gain parameter."""
-    if nyq_gain is None:
-        return None
-    
-    nyq_gain = float(nyq_gain)
-    if abs(nyq_gain) > 100:
-        raise ValidationError(f"Nyquist gain {nyq_gain} dB is out of valid range [-100, 100]")
-    return nyq_gain
+    validator = OptionalRangeValidator(NYQUIST_GAIN_MIN, NYQUIST_GAIN_MAX)
+    return validator.validate(nyq_gain, "Nyquist gain")
 
 
 def validate_iso_version(iso: str) -> str:
     """Validate ISO version parameter."""
-    iso = str(iso).strip().lower()
-    valid_versions = {"2003", "2023"}
-    if iso not in valid_versions:
-        raise ValidationError(f"ISO version must be one of {valid_versions}, got {iso}")
-    return iso
+    validator = ChoiceValidator(["2003", "2023"])
+    return validator.validate(iso, "ISO version")
 
 
 def validate_curve_type(curve: str) -> str:
     """Validate curve type parameter."""
-    curve = str(curve).strip().lower()
-    valid_curves = {"iso2003", "iso2023", "fletcher"}
-    if curve not in valid_curves:
-        raise ValidationError(f"Curve type must be one of {valid_curves}, got {curve}")
-    return curve
+    validator = ChoiceValidator(["iso2003", "iso2023", "fletcher"])
+    return validator.validate(curve, "Curve type")
 
 
 def validate_grid_points(points: int) -> int:
     """Validate grid points parameter."""
-    if not isinstance(points, int):
-        raise ValidationError(f"Grid points must be an integer, got {type(points)}")
-    if points < 16 or points > 8192:
-        raise ValidationError(f"Grid points {points} is out of valid range 16-8192")
-    return points
+    validator = RangeValidator(GRID_POINTS_MIN, GRID_POINTS_MAX, int)
+    return validator.validate(points, "Grid points")

@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .config import FilterConfig, PhonRangeConfig, LoggingConfig
-from .business import FilterGenerator
+from .services import FilterService
 from .validation import ValidationError
 
 
@@ -135,43 +135,31 @@ def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
     return logger
 
 
-def main(argv=None) -> int:
-    """
-    Main CLI entry point.
+class CLIParser:
+    """Handles CLI argument parsing and validation."""
     
-    Args:
-        argv: Command line arguments (None for sys.argv)
-        
-    Returns:
-        0 on success, 1 on error
-    """
-    parser = create_parser()
-    args = parser.parse_args(argv)
-
-    try:
-        # Create logging configuration
-        session_id = datetime.now().strftime("%f")  # Microseconds for unique session ID
-        logging_config = LoggingConfig(
-            enabled=args.log,
-            level=args.log_level,
-            log_dir=Path("logs"),
-            session_id=session_id
-        )
-        
-        # Set up logging
-        logger = setup_logging(logging_config)
-        logger.info("Starting FIR filter generation")
-        
-        # Determine curve type
+    @staticmethod
+    def parse_and_validate_args(argv=None):
+        """Parse and validate CLI arguments."""
+        parser = create_parser()
+        return parser.parse_args(argv)
+    
+    @staticmethod
+    def determine_curve_type(args) -> tuple[str, str]:
+        """Determine curve type and ISO version from CLI args."""
         if args.fletcher:
-            curve_type = "fletcher"
-            iso_version = "2023"  # Default for compatibility
+            return "fletcher", "2023"  # Default for compatibility
         else:
-            curve_type = f"iso{args.iso}"
-            iso_version = args.iso
+            return f"iso{args.iso}", args.iso
 
-        # Create configuration objects
-        filter_config = FilterConfig.from_cli_args(
+
+class ConfigurationFactory:
+    """Factory for creating configuration objects from CLI args."""
+    
+    @staticmethod
+    def create_filter_config(args, curve_type: str, iso_version: str) -> FilterConfig:
+        """Create FilterConfig from CLI arguments."""
+        return FilterConfig.from_cli_args(
             fs=args.fs,
             numtaps=args.taps,
             iso=iso_version,
@@ -187,19 +175,57 @@ def main(argv=None) -> int:
             export_fir_resp=args.export_fir_resp,
             out_dir=Path(args.out_dir)
         )
-        
-        phon_config = PhonRangeConfig(
+    
+    @staticmethod
+    def create_phon_config(args) -> PhonRangeConfig:
+        """Create PhonRangeConfig from CLI arguments."""
+        return PhonRangeConfig(
             start_phon=args.start_phon,
             end_phon=args.end_phon,
             step_phon=args.step_phon
         )
+    
+    @staticmethod
+    def create_logging_config(args) -> LoggingConfig:
+        """Create LoggingConfig from CLI arguments."""
+        session_id = datetime.now().strftime("%f")
+        return LoggingConfig(
+            enabled=args.log,
+            level=args.log_level,
+            log_dir=Path("logs"),
+            session_id=session_id
+        )
+
+
+def main(argv=None) -> int:
+    """
+    Main CLI entry point.
+    
+    Args:
+        argv: Command line arguments (None for sys.argv)
         
+    Returns:
+        0 on success, 1 on error
+    """
+    try:
+        # Parse arguments
+        args = CLIParser.parse_and_validate_args(argv)
+        
+        # Create configurations
+        curve_type, iso_version = CLIParser.determine_curve_type(args)
+        filter_config = ConfigurationFactory.create_filter_config(args, curve_type, iso_version)
+        phon_config = ConfigurationFactory.create_phon_config(args)
+        logging_config = ConfigurationFactory.create_logging_config(args)
+        
+        # Set up logging
+        logger = setup_logging(logging_config)
+        logger.info("Starting FIR filter generation")
         logger.info(f"Configuration: {filter_config.to_dict()}")
         logger.info(f"Phon range: {phon_config.start_phon}-{phon_config.end_phon} phon")
         
         # Execute generation
-        generator = FilterGenerator(filter_config, phon_config, logger)
-        count = generator.execute()
+        service = FilterService(filter_config, phon_config, logger)
+        count = service.execute()
         
         logger.info(f"Generated {count} filter(s) into: {filter_config.output_dir}")
         print(f"Generated {count} filter(s) into: {filter_config.output_dir}")

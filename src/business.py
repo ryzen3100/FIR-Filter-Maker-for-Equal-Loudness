@@ -1,6 +1,7 @@
 """Business logic for FIR filter generation."""
 
 import sys
+import logging
 from pathlib import Path
 from typing import Dict, List
 import numpy as np
@@ -16,21 +17,26 @@ from .io_utils import save_filter_to_wav, save_response_csv, _progress_iter
 class FilterGenerator:
     """Orchestrates FIR filter generation with memory efficient processing."""
     
-    def __init__(self, config: FilterConfig, phon_config: PhonRangeConfig):
+    def __init__(self, config: FilterConfig, phon_config: PhonRangeConfig, logger=None):
         self.config = config
         self.phon_config = phon_config
+        self.logger = logger or logging.getLogger('fir_loudness')
         self.curves = None
         self.fine_curves = None
         
     def initialize_curves(self) -> None:
         """Load and prepare curves based on selected curve type."""
+        self.logger.info(f"Initializing curves with type: {self.config.curve_type}")
+        
         if self.config.curve_type == "fletcher":
             fletcher_freq, fletcher_curves = get_fletcher_munson_data()
             self.curves = fletcher_curves
             self.freq_points = fletcher_freq
+            self.logger.debug("Loaded Fletcher-Munson curves")
         else:
             self.curves = select_iso(self.config.iso_version)
             self.freq_points = ISO_FREQ
+            self.logger.debug(f"Loaded ISO {self.config.iso_version} curves")
         
         # Create fine interpolation curves on-demand with memory optimization
         s = round_phon_key(self.phon_config.start_phon)
@@ -38,6 +44,7 @@ class FilterGenerator:
         self.fine_curves = create_fine_interpolated_curves(
             self.curves, self.freq_points, step=0.1, needed_range=(s, e)
         )
+        self.logger.debug(f"Created fine interpolated curves for range {s}-{e} phon")
         
     def generate_single_filter(self, source_phon: float, target_phon: float) -> np.ndarray:
         """Generate a single FIR filter."""
@@ -58,8 +65,11 @@ class FilterGenerator:
         
     def process_single_filter(self, source_phon: float, target_phon: float) -> None:
         """Process a single filter generation."""
+        self.logger.info(f"Generating filter: {source_phon:.1f} → {target_phon:.1f} phon")
+        
         # Generate filter
         fir = self.generate_single_filter(source_phon, target_phon)
+        self.logger.debug(f"Generated FIR filter with {len(fir)} taps")
         
         # Generate file name
         base_name = self.generate_file_name(source_phon, target_phon)
@@ -71,14 +81,17 @@ class FilterGenerator:
             channels=self.config.channels,
             sample_format=self.config.sample_format
         )
+        self.logger.debug(f"Saved filter to: {wav_path}")
         
         # Export response CSV if requested
         if self.config.export_csv:
             self._export_response_csv(source_phon, target_phon, fir, wav_path)
+            self.logger.debug("Exported target response CSV")
             
         # Export FIR magnitude response if requested
         if self.config.export_fir_response:
             self._export_fir_response(source_phon, target_phon, fir)
+            self.logger.debug("Exported FIR magnitude response CSV")
     
     def _export_response_csv(self, source_phon: float, target_phon: float, fir: np.ndarray, wav_path: Path) -> None:
         """Export target response grid to CSV."""
@@ -112,10 +125,14 @@ class FilterGenerator:
         Returns:
             Number of filters generated
         """
+        self.logger.info("Starting filter generation execution")
+        
         if self.fine_curves is None:
             self.initialize_curves()
         
         total_filters = self.phon_config.estimate_total_filters()
+        self.logger.info(f"Estimated total filters: {total_filters}")
+        
         progress_enabled = sys.stdout.isatty()
         
         count = 0
@@ -127,5 +144,7 @@ class FilterGenerator:
         ):
             self.process_single_filter(source_phon, self.phon_config.end_phon)
             count += 1
+            self.logger.debug(f"Completed filter {count}/{total_filters}")
         
+        self.logger.info(f"Filter generation completed. Generated {count} filters")
         return count

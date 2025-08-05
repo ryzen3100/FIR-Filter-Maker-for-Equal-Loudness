@@ -158,3 +158,9 @@ cython_debug/
 
 # Claude configuration
 CLAUDE.md
+
+# Serena MCP tools
+.serena/
+
+# Logging
+logs/

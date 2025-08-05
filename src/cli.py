@@ -3,9 +3,11 @@
 
 import argparse
 import sys
+import logging
 from pathlib import Path
+from datetime import datetime
 
-from .config import FilterConfig, PhonRangeConfig
+from .config import FilterConfig, PhonRangeConfig, LoggingConfig
 from .business import FilterGenerator
 from .validation import ValidationError
 
@@ -88,8 +90,49 @@ def create_parser() -> argparse.ArgumentParser:
         "--export-fir-resp", action="store_true",
         help="Export the designed FIR magnitude response as CSV"
     )
+    
+    # Logging options
+    parser.add_argument(
+        "--log", action="store_true",
+        help="Enable logging to logs/ directory"
+    )
+    parser.add_argument(
+        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
+        default="INFO",
+        help="Set logging level (default: INFO)"
+    )
 
     return parser
+
+
+def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
+    """Set up logging configuration."""
+    if not logging_config.enabled:
+        # Return a null logger
+        logger = logging.getLogger('fir_loudness')
+        logger.addHandler(logging.NullHandler())
+        return logger
+    
+    # Create logs directory if it doesn't exist
+    logging_config.log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create log filename with timestamp and session ID
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = logging_config.log_dir / f"fir_loudness_{timestamp}_{logging_config.session_id}.log"
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, logging_config.level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)  # Also log to console
+        ]
+    )
+    
+    logger = logging.getLogger('fir_loudness')
+    logger.info(f"Logging initialized. Log file: {log_file}")
+    return logger
 
 
 def main(argv=None) -> int:
@@ -106,6 +149,19 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        # Create logging configuration
+        session_id = datetime.now().strftime("%f")  # Microseconds for unique session ID
+        logging_config = LoggingConfig(
+            enabled=args.log,
+            level=args.log_level,
+            log_dir=Path("logs"),
+            session_id=session_id
+        )
+        
+        # Set up logging
+        logger = setup_logging(logging_config)
+        logger.info("Starting FIR filter generation")
+        
         # Determine curve type
         if args.fletcher:
             curve_type = "fletcher"
@@ -138,17 +194,25 @@ def main(argv=None) -> int:
             step_phon=args.step_phon
         )
         
+        logger.info(f"Configuration: {filter_config.to_dict()}")
+        logger.info(f"Phon range: {phon_config.start_phon}-{phon_config.end_phon} phon")
+        
         # Execute generation
-        generator = FilterGenerator(filter_config, phon_config)
+        generator = FilterGenerator(filter_config, phon_config, logger)
         count = generator.execute()
         
+        logger.info(f"Generated {count} filter(s) into: {filter_config.output_dir}")
         print(f"Generated {count} filter(s) into: {filter_config.output_dir}")
         return 0
         
     except ValidationError as e:
+        if 'logger' in locals():
+            logger.error(f"Validation error: {e}")
         print(f"Validation error: {e}", file=sys.stderr)
         return 1
     except Exception as e:
+        if 'logger' in locals():
+            logger.error(f"Error: {e}", exc_info=True)
         print(f"Error: {e}", file=sys.stderr)
         return 1
 

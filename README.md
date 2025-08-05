@@ -43,6 +43,9 @@ python fir_loudness_cli.py --start-phon 35 --end-phon 85 --step-phon 0.5 --chann
 
 # Batch generation with CSV export
 python fir_loudness_cli.py --start-phon 50 --end-phon 90 --step-phon 2.5 --export-csv
+
+# Enable logging for debugging
+python fir_loudness_cli.py --start-phon 40 --end-phon 50 --log --log-level DEBUG
 ```
 
 ## CLI Options
@@ -59,6 +62,8 @@ python fir_loudness_cli.py --start-phon 50 --end-phon 90 --step-phon 2.5 --expor
 | `--iso` | ISO standard (2003/2023) | 2023 |
 | `--fletcher` | Use Fletcher-Munson contours (mutually exclusive with --iso) | False |
 | `--out-dir` | Output directory | output |
+| `--log` | Enable logging to logs/ directory | False |
+| `--log-level` | Set logging level (DEBUG/INFO/WARNING/ERROR/CRITICAL) | INFO |
 
 ### Advanced Options
 - `--smooth-db`: Enable smoothing across ISO points
@@ -68,6 +73,10 @@ python fir_loudness_cli.py --start-phon 50 --end-phon 90 --step-phon 2.5 --expor
 - `--grid-points`: Frequency grid resolution
 - `--export-csv`: Export response data as CSV
 - `--export-fir-resp`: Export actual FIR response data
+
+### Logging Options
+- `--log`: Enable logging to logs/ directory
+- `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 ## Examples
 
@@ -142,6 +151,9 @@ src/
 ├── iso_data.py          # ISO contour data
 ├── fletcher_data.py     # Fletcher-Munson contour data
 └── validation.py        # Input validation & security
+
+logs/                    # Log files (when logging enabled)
+output/                  # Generated filter files
 ```
 
 ## Legacy Information

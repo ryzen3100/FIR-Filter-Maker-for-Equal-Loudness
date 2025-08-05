@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
+import logging
 
 from .validation import (
     validate_sampling_rate, validate_filter_taps, validate_phon_level,
@@ -103,6 +104,23 @@ class FilterConfig:
             'export_fir_response': self.export_fir_response,
             'output_dir': str(self.output_dir)
         }
+
+
+@dataclass
+class LoggingConfig:
+    """Configuration for logging."""
+    
+    enabled: bool
+    level: str
+    log_dir: Path
+    session_id: str
+    
+    def __post_init__(self):
+        """Validate logging configuration."""
+        if self.enabled:
+            self.log_dir = validate_directory_path(self.log_dir)
+            if self.level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+                raise ValueError(f"Invalid log level: {self.level}")
 
 
 @dataclass

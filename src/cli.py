@@ -207,6 +207,7 @@ def main(argv=None) -> int:
     Returns:
         0 on success, 1 on error
     """
+    logger = None
     try:
         # Parse arguments
         args = CLIParser.parse_and_validate_args(argv)
@@ -232,12 +233,12 @@ def main(argv=None) -> int:
         return 0
         
     except ValidationError as e:
-        if 'logger' in locals():
+        if logger:
             logger.error(f"Validation error: {e}")
         print(f"Validation error: {e}", file=sys.stderr)
         return 1
     except Exception as e:
-        if 'logger' in locals():
+        if logger:
             logger.error(f"Error: {e}", exc_info=True)
         print(f"Error: {e}", file=sys.stderr)
         return 1

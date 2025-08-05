@@ -2,7 +2,7 @@
 
 import os
 import pathlib
-from typing import Union
+from typing import Union, Any
 from abc import ABC, abstractmethod
 
 
@@ -34,7 +34,7 @@ class Validator(ABC):
     """Base class for parameter validation."""
     
     @abstractmethod
-    def validate(self, value, param_name: str = "parameter"):
+    def validate(self, value, param_name: str = "parameter") -> Any:
         """Validate a parameter value."""
         pass
 
@@ -79,16 +79,17 @@ class ChoiceValidator(Validator):
         self.case_sensitive = case_sensitive
     
     def validate(self, value, param_name: str = "parameter"):
+        value_str = str(value)
+        
         if not self.case_sensitive:
-            value_str = str(value).lower()
-            valid_strs = {str(c).lower() for c in self.valid_choices}
-            
+            value_str = value_str.lower()
             for choice in self.valid_choices:
                 if str(choice).lower() == value_str:
                     return choice
         else:
-            if str(value) in {str(c) for c in self.valid_choices}:
-                return str(value)
+            for choice in self.valid_choices:
+                if str(choice) == value_str:
+                    return choice
         
         raise ValidationError(
             f"{param_name} must be one of {list(self.valid_choices)}, got {value}"
@@ -110,8 +111,8 @@ def validate_step_size(step: float) -> float:
 def validate_channels(channels: int) -> int:
     """Validate channels parameter."""
     validator = ChoiceValidator([1, 2])
-    return validator.validate(channels, "Channels")
-
+    result = validator.validate(channels, "Channels")
+    return int(result)
 
 def validate_file_path(path: Union[str, pathlib.Path]) -> pathlib.Path:
     """Validate and sanitize file path parameters."""
@@ -168,7 +169,7 @@ class OptionalRangeValidator(Validator):
         self.max_val = max_val
         self.allow_none = allow_none
     
-    def validate(self, value, param_name: str = "parameter"):
+    def validate(self, value, param_name: str = "parameter") -> float | None:
         if value is None and self.allow_none:
             return None
         
@@ -201,14 +202,12 @@ def validate_nyq_gain_db(nyq_gain: Union[float, None]) -> Union[float, None]:
 def validate_iso_version(iso: str) -> str:
     """Validate ISO version parameter."""
     validator = ChoiceValidator(["2003", "2023"])
-    return validator.validate(iso, "ISO version")
-
+    return str(validator.validate(iso, "ISO version"))
 
 def validate_curve_type(curve: str) -> str:
     """Validate curve type parameter."""
     validator = ChoiceValidator(["iso2003", "iso2023", "fletcher"])
-    return validator.validate(curve, "Curve type")
-
+    return str(validator.validate(curve, "Curve type"))
 
 def validate_grid_points(points: int) -> int:
     """Validate grid points parameter."""

@@ -7,10 +7,11 @@ import logging
 
 from .validation import (
     validate_sampling_rate, validate_filter_taps, validate_phon_level,
-    validate_step_size, validate_channels, validate_sample_format,
+    validate_step_size, validate_sample_format,
     validate_dc_gain_mode, validate_nyq_gain_db, validate_iso_version,
     validate_curve_type, validate_grid_points, validate_directory_path
 )
+from .validation import ChoiceValidator
 
 
 @dataclass
@@ -38,7 +39,7 @@ class FilterConfig:
         self.numtaps = validate_filter_taps(self.numtaps)
         self.iso_version = validate_iso_version(self.iso_version)
         self.curve_type = validate_curve_type(self.curve_type)
-        self.channels = validate_channels(self.channels)
+        self.channels = ChoiceValidator([1, 2]).validate(self.channels, "Channels")
         self.sample_format = validate_sample_format(self.sample_format)
         self.dc_gain_mode = validate_dc_gain_mode(self.dc_gain_mode)
         self.nyq_gain_db = validate_nyq_gain_db(self.nyq_gain_db)

@@ -4,7 +4,7 @@ from typing import List, Dict
 
 FLETCHER_MUNSON_FREQ: List[float] = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 11300, 16000]
 
-FLETCHER_MUNSON_CURVES: Dict[int, List[float]] = {
+FLETCHER_MUNSON_CURVES: Dict[float, List[float]] = {
     0: [48.7, 32.5, 14.7, 2.3, 0, -1.6, 1.3, 2.5, -0.1, 4],
     10: [57.7, 42.3, 24.3, 14, 10, 7.6, 9.1, 10.2, 7.7, 13.3],
     20: [64.7, 50.6, 33.6, 25.1, 20, 17, 17.3, 18.3, 16, 22.7],

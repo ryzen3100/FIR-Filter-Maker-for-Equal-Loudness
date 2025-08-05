@@ -23,8 +23,15 @@ Perfect for use with Equalizer APO, APO-loudness, Easy Convolver, or other convo
 git clone https://github.com/ryzen3100/FIR-Filter-Maker-for-Equal-Loudness.git
 cd FIR-Filter-Maker-for-Equal-Loudness
 
+# Create virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
 # Install dependencies
 pip install numpy scipy
+
+# Optional: Install development tools
+pip install pyright  # For type checking
 ```
 
 ### Basic Usage
@@ -108,6 +115,9 @@ python fir_loudness_cli.py \
 ## Dependencies
 ```bash
 pip install numpy scipy
+
+# For development (optional)
+pip install pyright  # Type checking
 ```
 
 ## Output
@@ -128,6 +138,7 @@ All parameters are validated with:
 - Numeric bounds checking (phon 0-100, sampling rate 8k-192kHz)
 - Input type and range validation
 - Zero division protection and NaN handling
+- Type safety with mypy and pyright compatibility
 
 ## Usage in Equalizer Applications
 

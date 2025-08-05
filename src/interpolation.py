@@ -10,12 +10,12 @@ def round_phon_key(x: float) -> float:
     return float(Decimal(x).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
-def create_primary_interpolated_curves(curves: Dict[int, List[float]]) -> Dict[int, List[float]]:
+def create_primary_interpolated_curves(curves: Dict[float, list]) -> Dict[int, list]:
     """
     Create midpoint curves between existing 10-phon steps to ensure a complete 10-phon grid.
     Uses a simple 0.5 linear interpolation between lower and upper 10-phon neighbors.
     """
-    primary_curves: Dict[int, List[float]] = {}
+    primary_curves: Dict[int, list] = {}
     int_keys = sorted(int(k) for k in curves.keys())
     if not int_keys:
         return primary_curves
@@ -32,17 +32,17 @@ def create_primary_interpolated_curves(curves: Dict[int, List[float]]) -> Dict[i
     return primary_curves
 
 
-def create_fine_interpolated_curves(curves: Dict[int, List[float]],
-                                    iso_freq: List[float],
+def create_fine_interpolated_curves(curves: Dict[float, list],
+                                    iso_freq: list,
                                     step: float = 0.1,
-                                    needed_range: Optional[tuple[float, float]] = None) -> Dict[float, List[float]]:
+                                    needed_range: Optional[tuple[float, float]] = None) -> Dict[float, list]:
     """
     Build fine phon curves by linear interpolation between 10-phon base curves.
     Optionally restrict to a [start, end] phon range to save time/memory.
     """
-    fine_curves: Dict[float, List[float]] = {}
+    fine_curves: Dict[float, list] = {}
     # Use curves directly - no primary interpolation for Fletcher-Munson
-    base_int_keys: Dict[int, List[float]] = {int(k): v for k, v in curves.items()}
+    base_int_keys: Dict[float, list] = {int(k): list(v) for k, v in curves.items()}
 
     # Determine iteration range
     start = 0.0

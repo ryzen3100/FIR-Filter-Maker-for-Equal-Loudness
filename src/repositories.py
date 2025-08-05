@@ -32,19 +32,20 @@ class ISORepository(CurveRepository):
     
     def __init__(self, version: str = "2023"):
         self.version = version
-        self._curves = None
-        self._frequencies = None
+        self._curves: Dict[float, np.ndarray] | None = None
+        self._frequencies: np.ndarray | None = None
     
     def get_curves(self) -> Dict[float, np.ndarray]:
         """Get ISO 226 equal-loudness curves."""
         if self._curves is None:
-            self._curves = select_iso(self.version)
+            raw_curves = select_iso(self.version)
+            self._curves = {float(k): np.array(v) for k, v in raw_curves.items()}
         return self._curves
     
     def get_frequencies(self) -> np.ndarray:
         """Get ISO frequency points."""
         if self._frequencies is None:
-            self._frequencies = ISO_FREQ
+            self._frequencies = np.array(ISO_FREQ)
         return self._frequencies
     
     def get_curve_type(self) -> str:
@@ -56,21 +57,21 @@ class FletcherRepository(CurveRepository):
     """Repository for Fletcher-Munson equal-loudness contours."""
     
     def __init__(self):
-        self._curves = None
-        self._frequencies = None
+        self._curves: Dict[float, np.ndarray] | None = None
+        self._frequencies: np.ndarray | None = None
     
     def get_curves(self) -> Dict[float, np.ndarray]:
         """Get Fletcher-Munson equal-loudness curves."""
         if self._curves is None:
             _, curves = get_fletcher_munson_data()
-            self._curves = curves
+            self._curves = {float(k): np.array(v) for k, v in curves.items()}
         return self._curves
     
     def get_frequencies(self) -> np.ndarray:
         """Get Fletcher-Munson frequency points."""
         if self._frequencies is None:
             freqs, _ = get_fletcher_munson_data()
-            self._frequencies = freqs
+            self._frequencies = np.array(freqs)
         return self._frequencies
     
     def get_curve_type(self) -> str:

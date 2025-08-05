@@ -29,10 +29,10 @@ def apply_db_smoothing(db_values: np.ndarray, window_size: int = 3) -> np.ndarra
 
 
 def compute_relative_gains(
-    target_curves: Dict[float, List[float]],
+    target_curves: Dict[float, list],
     source_phon: float,
     target_phon: float,
-    iso_freq: List[float],
+    iso_freq: list,
     smooth_db: bool = False,
     smooth_window: int = 3
 ) -> np.ndarray:
@@ -84,7 +84,7 @@ def compute_relative_gains(
 
 def prepare_target_response(
     relative_gains_db: np.ndarray,
-    iso_freq: List[float],
+    iso_freq: list,
     config: FilterConfig
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -143,8 +143,8 @@ def prepare_target_response(
 def design_fir_filter_from_phon_levels(
     source_phon: float,
     target_phon: float,
-    target_curves: Dict[float, List[float]],
-    iso_freq: List[float],
+    target_curves: Dict[float, list],
+    iso_freq: list,
     config: FilterConfig
 ) -> np.ndarray:
     """
@@ -170,6 +170,6 @@ def design_fir_filter_from_phon_levels(
     freqs, gains = prepare_target_response(relative_gains_db, iso_freq, config)
     
     # Design FIR filter
-    fir_coefficients = signal.firwin2(config.numtaps, freqs, gains, fs=config.fs)
+    fir_coefficients = np.array(signal.firwin2(config.numtaps, freqs, gains, fs=config.fs))
     
     return fir_coefficients

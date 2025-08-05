@@ -171,6 +171,7 @@ src/
 ├── io_utils.py          # File I/O with pathlib
 ├── iso_data.py          # ISO contour data
 ├── fletcher_data.py     # Fletcher-Munson contour data
+├── benchmark.py         # Performance latency analysis
 └── validation.py        # Input validation & security
 
 logs/                    # Log files (when logging enabled)

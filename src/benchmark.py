@@ -44,25 +44,17 @@ class FIRBenchmark:
         self.system_info = self._get_system_info()
     
     def _get_system_info(self) -> SystemInfo:
-        """Collect system information."""
+        """Collect basic system information."""
         try:
             import scipy
             scipy_version = scipy.__version__
         except ImportError:
             scipy_version = "not installed"
-        
-        if HAS_PSUTIL:
-            import psutil
-            cores = psutil.cpu_count() or 1
-            memory_gb = psutil.virtual_memory().total / (1024**3)
-        else:
-            cores = 1
-            memory_gb = 1.0
             
         return SystemInfo(
             cpu=platform.processor(),
-            cores=cores,
-            memory_gb=memory_gb,
+            cores=1,  # Placeholder since we don't need actual system info
+            memory_gb=1.0,  # Placeholder since we don't need actual system info
             python_version=platform.python_version(),
             numpy_version=np.__version__,
             scipy_version=scipy_version

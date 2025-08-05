@@ -13,6 +13,7 @@ Perfect for use with Equalizer APO, APO-loudness, Easy Convolver, or other convo
 - **Stereo Support**: Mono or stereo channel output
 - **Advanced Tuning**: Configurable smoothing, DC gain, and Nyquist response
 - **Export Options**: Filter response CSV export available
+- **Performance Benchmarking**: Built-in latency analysis for real-time applications
 - **Production Ready**: Comprehensive input validation and security
 
 ## Quick Start
@@ -85,6 +86,9 @@ python fir_loudness_cli.py --start-phon 40 --end-phon 50 --log --log-level DEBUG
 - `--log`: Enable logging to logs/ directory
 - `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
+### Performance Analysis
+- `--benchmark`: Run latency benchmark to determine optimal tap sizes for your system
+
 ## Examples
 
 ### Simple Use Case
@@ -97,6 +101,12 @@ python fir_loudness_cli.py --start-phon 70 --end-phon 85
 Create filters for every 2.5 phon step from 45 to 85:
 ```bash
 python fir_loudness_cli.py --start-phon 45 --end-phon 85 --step-phon 2.5
+```
+
+### Performance Benchmarking
+Determine optimal tap sizes for your system:
+```bash
+python fir_loudness_cli.py --benchmark
 ```
 
 ### Custom Parameters

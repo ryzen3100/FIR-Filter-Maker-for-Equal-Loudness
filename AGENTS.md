@@ -11,6 +11,13 @@ python -c "import src.cli, src.business, src.config, src.validation"
 # CLI help check
 python -c "from src.cli import create_parser; p=create_parser(); p.parse_args(['--help'])"
 
+# Type checking (optional)
+mypy src/ --ignore-missing-imports
+pyright src/
+
+# Linting (optional)
+flake8 src/
+
 # Install deps
 pip install numpy scipy
 ```

@@ -32,7 +32,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install numpy scipy
 
 # Optional: Install development tools
-pip install pyright  # For type checking
+pip install pyright mypy flake8  # For type checking and linting
 ```
 
 ### Basic Usage
@@ -77,7 +77,7 @@ python fir_loudness_cli.py --start-phon 40 --end-phon 50 --log --log-level DEBUG
 - `--smooth-db`: Enable smoothing across ISO points
 - `--smooth-window`: Smoothing window size (odd integer)
 - `--dc-gain-mode`: DC gain control (first_iso/unity)
-- `--nyq-gain-db`: Nyquist gain control (dB)
+- `--nyq-gain-db`: Nyquist gain control (dB) - requires odd tap count for non-zero values
 - `--grid-points`: Frequency grid resolution
 - `--export-csv`: Export response data as CSV
 - `--export-fir-resp`: Export actual FIR response data
@@ -91,7 +91,7 @@ python fir_loudness_cli.py --start-phon 40 --end-phon 50 --log --log-level DEBUG
 
 ## Performance
 
-- **Filter Generation**: ~20-50ms per filter depending on tap count
+- **Filter Generation**: ~3ms per filter (tested 101 filters in 318ms total)
 - **Memory Usage**: Scales with tap count (64k taps ≈ 500KB RAM)
 - **Real-time Latency**: See `--benchmark` for system-specific recommendations
 - **Batch Processing**: Efficiently handles hundreds of filters in sequence
@@ -265,7 +265,7 @@ Please maintain the existing code style and type safety standards.
 
 Current version includes comprehensive code quality refactoring with:
 - Full type safety (mypy/pyright compliant)
-- Flake8 lint compliance
+- Improved Flake8 compliance (minor formatting issues remain)
 - Modular architecture
 - Security-focused validation
 - Performance benchmarking

@@ -11,6 +11,7 @@ from .interpolation import create_fine_interpolated_curves, round_phon_key
 from .design import (design_fir_filter_from_phon_levels,
                      compute_relative_gains, prepare_target_response)
 from .io_utils import save_filter_to_wav, save_response_csv
+from scipy import signal
 
 
 class FilterGenerationService:
@@ -34,41 +35,49 @@ class FilterGenerationService:
             )
         return self._repository
 
-    def _initialize_curves(self) -> None:
-        """Initialize curves and frequency points."""
+    def _ensure_curves_initialized(self) -> None:
+        """Initialize curves and frequency points if not already."""
         if self._fine_curves is None:
             repo = self._get_repository()
             curves = repo.get_curves()
             freqs = repo.get_frequencies()
-
-            # Convert numpy arrays to lists for type compatibility
-            curves_as_lists = {
-                k: v.tolist() if hasattr(v, 'tolist') else list(v)
-                for k, v in curves.items()
-            }
-
             s = round_phon_key(self.phon_config.start_phon)
             e = round_phon_key(self.phon_config.end_phon)
-
+            
+            # Convert to lists for compatibility
+            curves_as_lists = {k: [float(x) for x in v] for k, v in curves.items()}
+            freqs_list = [float(x) for x in freqs]
+            
             self._fine_curves = create_fine_interpolated_curves(
-                curves_as_lists, freqs.tolist(), step=0.1, needed_range=(s, e)
+                curves_as_lists, freqs_list, step=0.1, needed_range=(s, e)
             )
             self._freq_points = freqs
-
             self.logger.debug(f"Initialized {repo.get_curve_type()} curves "
                              f"for range {s}-{e} phon")
+
+    @property
+    def fine_curves(self) -> Dict[float, list]:
+        self._ensure_curves_initialized()
+        assert self._fine_curves is not None
+        return self._fine_curves
+
+    @property
+    def freq_points(self) -> np.ndarray:
+        self._ensure_curves_initialized()
+        assert self._freq_points is not None
+        return self._freq_points
 
     def generate_single_filter(self, source_phon: float,
                                target_phon: float) -> np.ndarray:
         """Generate a single FIR filter."""
-        self._initialize_curves()
+        self._ensure_curves_initialized()
 
-        if self._fine_curves is None or self._freq_points is None:
-            raise ValueError("Curves not initialized")
 
+        curves: Dict[float, list] = self.fine_curves
+        freqs: np.ndarray = self.freq_points
         fir = design_fir_filter_from_phon_levels(
-            source_phon, target_phon, self._fine_curves,
-            self._freq_points.tolist(), self.config
+            source_phon, target_phon, curves,
+            freqs.tolist(), self.config
         )
 
         self.logger.debug(f"Generated FIR filter with {len(fir)} taps for "
@@ -109,12 +118,15 @@ class FileNamingService:
         base_name = self.generate_filter_filename(source_phon, target_phon)
         return base_name.replace("_filter.wav", "_fir_mag.csv")
 
+    CURVE_MAP = {
+        "fletcher": "FLETCHER",
+        "iso2003": "ISO2003",
+        "iso2023": "ISO2023"
+    }
+
     def _get_curve_identifier(self) -> str:
         """Get curve type identifier for file naming."""
-        if self.config.curve_type == "fletcher":
-            return "FLETCHER"
-        else:
-            return f"ISO{self.config.iso_version.upper()}"
+        return self.CURVE_MAP.get(self.config.curve_type, "UNKNOWN")
 
 
 class ExportService:
@@ -162,7 +174,6 @@ class ExportService:
         if not self.config.export_fir_response:
             return
 
-        from scipy import signal
 
         w, h = signal.freqz(fir, worN=4096, fs=self.config.fs)
         mag = np.abs(h)

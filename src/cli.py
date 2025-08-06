@@ -17,7 +17,7 @@ def create_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(
         description="FIR filter generator for equal-loudness transitions "
-                   "(ISO226)"
+                    "(ISO226)"
     )
 
     # Curve selection (mutually exclusive)
@@ -110,13 +110,41 @@ def create_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR",
-                               "CRITICAL"],
-        default="INFO",
-        help="Set logging level (default: INFO)"
+                              "CRITICAL"
+    ],        default="INFO",
+        help="Set logging level "
+             "(default: INFO)"
     )
 
     return parser
 
+
+def handle_benchmark() -> int:
+    benchmark = FIRBenchmark()
+    return benchmark.execute()
+
+def setup_configurations(args) -> tuple[FilterConfig, PhonRangeConfig, LoggingConfig]:
+    curve_type, iso_version = CLIParser.determine_curve_type(args)
+    filter_config = ConfigurationFactory.create_filter_config(
+        args, curve_type, iso_version)
+    phon_config = ConfigurationFactory.create_phon_config(args)
+    logging_config = ConfigurationFactory.create_logging_config(args)
+    return filter_config, phon_config, logging_config
+
+def log_startup(logger: logging.Logger, filter_config: FilterConfig, phon_config: PhonRangeConfig) -> None:
+    logger.info("Starting FIR filter generation")
+    logger.info(f"Configuration: {filter_config.to_dict()}")
+    logger.info(f"Phon range: {phon_config.start_phon}-"
+               f"{phon_config.end_phon} phon")
+
+def execute_generation(filter_config: FilterConfig, phon_config: PhonRangeConfig, logger: logging.Logger) -> int:
+    service = FilterService(filter_config, phon_config, logger)
+    return service.execute()
+
+def log_completion(logger: logging.Logger, count: int, filter_config: FilterConfig) -> None:
+    logger.info(f"Generated {count} filter(s) into: "
+               f"{filter_config.output_dir}")
+    print(f"Generated {count} filter(s) into: {filter_config.output_dir}")
 
 def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
     """Set up logging configuration."""
@@ -222,6 +250,7 @@ class ConfigurationFactory:
 
 
 def main(argv=None) -> int:
+    logger = None
     """
     Main CLI entry point.
 
@@ -231,37 +260,17 @@ def main(argv=None) -> int:
     Returns:
         0 on success, 1 on error
     """
-    logger = None
     try:
-        # Parse arguments
         args = CLIParser.parse_and_validate_args(argv)
-
-        # Handle benchmark mode
         if args.benchmark:
-            benchmark = FIRBenchmark()
-            return benchmark.execute()
-
-        # Create configurations
-        curve_type, iso_version = CLIParser.determine_curve_type(args)
-        filter_config = ConfigurationFactory.create_filter_config(
-            args, curve_type, iso_version)
-        phon_config = ConfigurationFactory.create_phon_config(args)
-        logging_config = ConfigurationFactory.create_logging_config(args)
-
-        # Set up logging
+            return handle_benchmark()
+        
+        filter_config, phon_config, logging_config = setup_configurations(args)
         logger = setup_logging(logging_config)
-        logger.info("Starting FIR filter generation")
-        logger.info(f"Configuration: {filter_config.to_dict()}")
-        logger.info(f"Phon range: {phon_config.start_phon}-"
-                   f"{phon_config.end_phon} phon")
-
-        # Execute generation
-        service = FilterService(filter_config, phon_config, logger)
-        count = service.execute()
-
-        logger.info(f"Generated {count} filter(s) into: "
-                   f"{filter_config.output_dir}")
-        print(f"Generated {count} filter(s) into: {filter_config.output_dir}")
+        log_startup(logger, filter_config, phon_config)
+        
+        count = execute_generation(filter_config, phon_config, logger)
+        log_completion(logger, count, filter_config)
         return 0
 
     except ValidationError as e:

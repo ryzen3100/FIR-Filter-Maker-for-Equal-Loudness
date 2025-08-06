@@ -1,21 +1,14 @@
-"""Configuration classes for the FIR filter maker."""
+"""Pure DTO configuration classes for the FIR filter maker.
+Zero validation dependencies - validation handled separately."""
 
 from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
 
-from .validation import (
-    validate_sampling_rate, validate_filter_taps, validate_phon_level,
-    validate_step_size, validate_sample_format,
-    validate_dc_gain_mode, validate_nyq_gain_db, validate_iso_version,
-    validate_curve_type, validate_grid_points, validate_directory_path
-)
-from .validation import ChoiceValidator
-
 
 @dataclass
 class FilterConfig:
-    """Configuration for FIR filter design."""
+    """Pure data transfer object for FIR filter design configuration."""
 
     fs: int
     numtaps: int
@@ -31,25 +24,6 @@ class FilterConfig:
     export_csv: bool
     export_fir_response: bool
     output_dir: Path
-
-    def __post_init__(self):
-        """Validate all configuration parameters."""
-        self.fs = validate_sampling_rate(self.fs)
-        self.numtaps = validate_filter_taps(self.numtaps)
-        self.iso_version = validate_iso_version(self.iso_version)
-        self.curve_type = validate_curve_type(self.curve_type)
-        self.channels = ChoiceValidator([1, 2]).validate(self.channels,
-                                                         "Channels")
-        self.sample_format = validate_sample_format(self.sample_format)
-        self.dc_gain_mode = validate_dc_gain_mode(self.dc_gain_mode)
-        self.nyq_gain_db = validate_nyq_gain_db(self.nyq_gain_db)
-        self.grid_points = validate_grid_points(self.grid_points)
-        self.output_dir = validate_directory_path(self.output_dir)
-
-        if self.smooth_window < 1 or self.smooth_window > 15:
-            raise ValueError("Smoothing window must be between 1 and 15")
-        if self.smooth_window % 2 == 0:
-            raise ValueError("Smoothing window must be odd")
 
     @classmethod
     def from_cli_args(
@@ -109,59 +83,18 @@ class FilterConfig:
 
 @dataclass
 class LoggingConfig:
-    """Configuration for logging."""
+    """Pure data transfer object for logging configuration."""
 
     enabled: bool
     level: str
     log_dir: Path
     session_id: str
 
-    def __post_init__(self):
-        """Validate logging configuration."""
-        if self.enabled:
-            self.log_dir = validate_directory_path(self.log_dir)
-            if self.level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR',
-                                 'CRITICAL']:
-                raise ValueError(f"Invalid log level: {self.level}")
-
 
 @dataclass
 class PhonRangeConfig:
-    """Configuration for phon level ranges."""
+    """Pure data transfer object for phon level range configuration."""
 
     start_phon: float
     end_phon: float
     step_phon: float
-
-    def __post_init__(self):
-        """Validate phon range configuration."""
-        self.start_phon = validate_phon_level(self.start_phon,
-                                              "Start phon level")
-        self.end_phon = validate_phon_level(self.end_phon, "End phon level")
-        self.step_phon = validate_step_size(self.step_phon)
-
-        if self.start_phon > self.end_phon:
-            raise ValueError(
-                f"Start phon level ({self.start_phon}) must be <= end phon "
-                f"level ({self.end_phon})"
-            )
-
-    def generate_phon_levels(self):
-        """Generate phon levels based on range configuration."""
-        from .interpolation import round_phon_key
-
-        start = round_phon_key(self.start_phon)
-        end = round_phon_key(self.end_phon)
-
-        n_steps = int(round((end - start) / self.step_phon))
-        for i in range(n_steps + 1):
-            yield start + i * self.step_phon
-
-    def estimate_total_filters(self) -> int:
-        """Estimate total number of filters to be generated."""
-        from .interpolation import round_phon_key
-
-        start = round_phon_key(self.start_phon)
-        end = round_phon_key(self.end_phon)
-        n_steps = int(round((end - start) / self.step_phon))
-        return n_steps + 1

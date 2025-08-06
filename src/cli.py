@@ -8,7 +8,8 @@ from pathlib import Path
 from datetime import datetime
 
 from .config import FilterConfig, PhonRangeConfig, LoggingConfig
-from .services import FilterService
+from .config_validator import ConfigValidator
+from .application_service import ApplicationService
 from .benchmark import FIRBenchmark
 from .validation import ValidationError
 
@@ -129,6 +130,10 @@ def setup_configurations(args) -> tuple[FilterConfig, PhonRangeConfig, LoggingCo
         args, curve_type, iso_version)
     phon_config = ConfigurationFactory.create_phon_config(args)
     logging_config = ConfigurationFactory.create_logging_config(args)
+    
+    # Validate configurations
+    ConfigValidator.validate_all(filter_config, phon_config, logging_config)
+    
     return filter_config, phon_config, logging_config
 
 def log_startup(logger: logging.Logger, filter_config: FilterConfig, phon_config: PhonRangeConfig) -> None:
@@ -138,7 +143,7 @@ def log_startup(logger: logging.Logger, filter_config: FilterConfig, phon_config
                f"{phon_config.end_phon} phon")
 
 def execute_generation(filter_config: FilterConfig, phon_config: PhonRangeConfig, logger: logging.Logger) -> int:
-    service = FilterService(filter_config, phon_config, logger)
+    service = ApplicationService(filter_config, phon_config, logger)
     return service.execute()
 
 def log_completion(logger: logging.Logger, count: int, filter_config: FilterConfig) -> None:

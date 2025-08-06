@@ -1,6 +1,5 @@
 """Validation utilities for the FIR filter maker."""
 
-import os
 import pathlib
 from typing import Union, Any
 from abc import ABC, abstractmethod
@@ -32,7 +31,7 @@ NYQUIST_GAIN_MAX = 120.0
 
 class Validator(ABC):
     """Base class for parameter validation."""
-    
+
     @abstractmethod
     def validate(self, value, param_name: str = "parameter") -> Any:
         """Validate a parameter value."""
@@ -41,20 +40,22 @@ class Validator(ABC):
 
 class RangeValidator(Validator):
     """Validator for numeric ranges."""
-    
+
     def __init__(self, min_val, max_val, value_type=None):
         self.min_val = min_val
         self.max_val = max_val
         self.value_type = value_type
-    
+
     def validate(self, value, param_name: str = "parameter"):
         if self.value_type and not isinstance(value, self.value_type):
             raise ValidationError(
-                f"{param_name} must be a {self.value_type.__name__}, got {type(value)}"
+                f"{param_name} must be a {self.value_type.__name__}, "
+                f"got {type(value)}"
             )
         if value < self.min_val or value > self.max_val:
             raise ValidationError(
-                f"{param_name} {value} is out of valid range {self.min_val}-{self.max_val}"
+                f"{param_name} {value} is out of valid range "
+                f"{self.min_val}-{self.max_val}"
             )
         return value
 
@@ -73,14 +74,14 @@ def validate_filter_taps(numtaps: int) -> int:
 
 class ChoiceValidator(Validator):
     """Validator for choices/enum values."""
-    
+
     def __init__(self, valid_choices, case_sensitive=False):
         self.valid_choices = set(valid_choices)
         self.case_sensitive = case_sensitive
-    
+
     def validate(self, value, param_name: str = "parameter"):
         value_str = str(value)
-        
+
         if not self.case_sensitive:
             value_str = value_str.lower()
             for choice in self.valid_choices:
@@ -90,9 +91,10 @@ class ChoiceValidator(Validator):
             for choice in self.valid_choices:
                 if str(choice) == value_str:
                     return choice
-        
+
         raise ValidationError(
-            f"{param_name} must be one of {list(self.valid_choices)}, got {value}"
+            f"{param_name} must be one of {list(self.valid_choices)}, "
+            f"got {value}"
         )
 
 
@@ -114,39 +116,41 @@ def validate_channels(channels: int) -> int:
     result = validator.validate(channels, "Channels")
     return int(result)
 
+
 def validate_file_path(path: Union[str, pathlib.Path]) -> pathlib.Path:
     """Validate and sanitize file path parameters."""
     if isinstance(path, str):
         path = pathlib.Path(path)
-    
+
     if not isinstance(path, pathlib.Path):
         raise ValidationError(f"Path must be string or Path, got {type(path)}")
-    
+
     # Resolve and normalize the path
     path = path.resolve()
-    
+
     # Check for directory traversal attempts
     try:
         path.resolve().relative_to(path.cwd())
     except ValueError:
         # Allow absolute paths within reasonable limits
         pass
-    
+
     # Check for dangerous patterns
     if any(part.startswith('.') for part in path.parts):
         raise ValidationError(f"Path contains hidden directories: {path}")
-    
+
     # Ensure path doesn't escape expected bounds
     if '..' in str(path) or '$' in str(path) or '~' in str(path):
         raise ValidationError(f"Path contains invalid characters: {path}")
-    
+
     return path
 
 
-def validate_directory_path(path: Union[str, pathlib.Path], create: bool = True) -> pathlib.Path:
+def validate_directory_path(path: Union[str, pathlib.Path],
+                            create: bool = True) -> pathlib.Path:
     """Validate and sanitize directory path parameters."""
     path = validate_file_path(path)
-    
+
     try:
         if create:
             path.mkdir(parents=True, exist_ok=True)
@@ -154,29 +158,30 @@ def validate_directory_path(path: Union[str, pathlib.Path], create: bool = True)
             raise ValidationError(f"Directory does not exist: {path}")
     except OSError as e:
         raise ValidationError(f"Cannot create/access directory {path}: {e}")
-    
+
     if not path.is_dir():
         raise ValidationError(f"Path is not a directory: {path}")
-    
+
     return path
 
 
 class OptionalRangeValidator(Validator):
     """Validator for optional numeric ranges."""
-    
+
     def __init__(self, min_val, max_val, allow_none=True):
         self.min_val = min_val
         self.max_val = max_val
         self.allow_none = allow_none
-    
+
     def validate(self, value, param_name: str = "parameter") -> float | None:
         if value is None and self.allow_none:
             return None
-        
+
         value = float(value)
         if value < self.min_val or value > self.max_val:
             raise ValidationError(
-                f"{param_name} {value} is out of valid range [{self.min_val}, {self.max_val}]"
+                f"{param_name} {value} is out of valid range "
+                f"[{self.min_val}, {self.max_val}]"
             )
         return value
 
@@ -204,10 +209,12 @@ def validate_iso_version(iso: str) -> str:
     validator = ChoiceValidator(["2003", "2023"])
     return str(validator.validate(iso, "ISO version"))
 
+
 def validate_curve_type(curve: str) -> str:
     """Validate curve type parameter."""
     validator = ChoiceValidator(["iso2003", "iso2023", "fletcher"])
     return str(validator.validate(curve, "Curve type"))
+
 
 def validate_grid_points(points: int) -> int:
     """Validate grid points parameter."""

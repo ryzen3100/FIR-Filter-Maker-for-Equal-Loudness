@@ -16,9 +16,10 @@ from .validation import ValidationError
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure argument parser."""
     parser = argparse.ArgumentParser(
-        description="FIR filter generator for equal-loudness transitions (ISO226)"
+        description="FIR filter generator for equal-loudness transitions "
+                   "(ISO226)"
     )
-    
+
     # Curve selection (mutually exclusive)
     curve_group = parser.add_mutually_exclusive_group()
     curve_group.add_argument(
@@ -54,7 +55,8 @@ def create_parser() -> argparse.ArgumentParser:
         help="Number of channels in WAV (1=mono, 2=stereo, default: 1)"
     )
     parser.add_argument(
-        "--format", dest="sample_format", choices=["float32", "pcm16"], default="float32",
+        "--format", dest="sample_format", choices=["float32", "pcm16"],
+        default="float32",
         help="Output WAV sample format (default: float32)"
     )
     parser.add_argument(
@@ -72,8 +74,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="Smoothing window length (odd integer, default: 3)"
     )
     parser.add_argument(
-        "--dc-gain-mode", choices=["first_iso", "unity"], default="first_iso",
-        help="DC gain choice: extend first ISO gain or force unity (default: first_iso)"
+        "--dc-gain-mode", choices=["first_iso", "unity"],
+        default="first_iso",
+        help="DC gain choice: extend first ISO gain or force unity "
+             "(default: first_iso)"
     )
     parser.add_argument(
         "--nyq-gain-db", type=float, default=None,
@@ -81,7 +85,8 @@ def create_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--grid-points", type=int, default=2048,
-        help="Number of frequency grid points for target response (default: 2048)"
+        help="Number of frequency grid points for target response "
+             "(default: 2048)"
     )
     parser.add_argument(
         "--export-csv", action="store_true",
@@ -91,20 +96,21 @@ def create_parser() -> argparse.ArgumentParser:
         "--export-fir-resp", action="store_true",
         help="Export the designed FIR magnitude response as CSV"
     )
-    
+
     # Benchmark mode
     parser.add_argument(
         "--benchmark", action="store_true",
         help="Run performance benchmark to estimate maximum taps size"
     )
-    
+
     # Logging options
     parser.add_argument(
         "--log", action="store_true",
         help="Enable logging to logs/ directory"
     )
     parser.add_argument(
-        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
+        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR",
+                               "CRITICAL"],
         default="INFO",
         help="Set logging level (default: INFO)"
     )
@@ -119,14 +125,14 @@ def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
         logger = logging.getLogger('fir_loudness')
         logger.addHandler(logging.NullHandler())
         return logger
-    
+
     # Create logs directory if it doesn't exist
     logging_config.log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create log filename with timestamp and session ID
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = logging_config.log_dir / f"fir_loudness_{timestamp}_{logging_config.session_id}.log"
-    
+
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, logging_config.level),
@@ -136,7 +142,7 @@ def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
             logging.StreamHandler(sys.stdout)  # Also log to console
         ]
     )
-    
+
     logger = logging.getLogger('fir_loudness')
     logger.info(f"Logging initialized. Log file: {log_file}")
     return logger
@@ -144,23 +150,23 @@ def setup_logging(logging_config: LoggingConfig) -> logging.Logger:
 
 class CLIParser:
     """Handles CLI argument parsing and validation."""
-    
+
     @staticmethod
     def parse_and_validate_args(argv=None):
         """Parse and validate CLI arguments."""
         parser = create_parser()
         args = parser.parse_args(argv)
-        
+
         # Skip validation for benchmark mode
         if args.benchmark:
             return args
-            
+
         # Validate required arguments for normal mode
         if args.start_phon is None or args.end_phon is None:
             parser.error("--start-phon and --end-phon are required")
-            
+
         return args
-    
+
     @staticmethod
     def determine_curve_type(args) -> tuple[str, str]:
         """Determine curve type and ISO version from CLI args."""
@@ -172,9 +178,10 @@ class CLIParser:
 
 class ConfigurationFactory:
     """Factory for creating configuration objects from CLI args."""
-    
+
     @staticmethod
-    def create_filter_config(args, curve_type: str, iso_version: str) -> FilterConfig:
+    def create_filter_config(args, curve_type: str,
+                             iso_version: str) -> FilterConfig:
         """Create FilterConfig from CLI arguments."""
         return FilterConfig.from_cli_args(
             fs=args.fs,
@@ -192,7 +199,7 @@ class ConfigurationFactory:
             export_fir_resp=args.export_fir_resp,
             out_dir=Path(args.out_dir)
         )
-    
+
     @staticmethod
     def create_phon_config(args) -> PhonRangeConfig:
         """Create PhonRangeConfig from CLI arguments."""
@@ -201,7 +208,7 @@ class ConfigurationFactory:
             end_phon=args.end_phon,
             step_phon=args.step_phon
         )
-    
+
     @staticmethod
     def create_logging_config(args) -> LoggingConfig:
         """Create LoggingConfig from CLI arguments."""
@@ -217,10 +224,10 @@ class ConfigurationFactory:
 def main(argv=None) -> int:
     """
     Main CLI entry point.
-    
+
     Args:
         argv: Command line arguments (None for sys.argv)
-        
+
     Returns:
         0 on success, 1 on error
     """
@@ -228,32 +235,35 @@ def main(argv=None) -> int:
     try:
         # Parse arguments
         args = CLIParser.parse_and_validate_args(argv)
-        
+
         # Handle benchmark mode
         if args.benchmark:
             benchmark = FIRBenchmark()
             return benchmark.execute()
-        
+
         # Create configurations
         curve_type, iso_version = CLIParser.determine_curve_type(args)
-        filter_config = ConfigurationFactory.create_filter_config(args, curve_type, iso_version)
+        filter_config = ConfigurationFactory.create_filter_config(
+            args, curve_type, iso_version)
         phon_config = ConfigurationFactory.create_phon_config(args)
         logging_config = ConfigurationFactory.create_logging_config(args)
-        
+
         # Set up logging
         logger = setup_logging(logging_config)
         logger.info("Starting FIR filter generation")
         logger.info(f"Configuration: {filter_config.to_dict()}")
-        logger.info(f"Phon range: {phon_config.start_phon}-{phon_config.end_phon} phon")
-        
+        logger.info(f"Phon range: {phon_config.start_phon}-"
+                   f"{phon_config.end_phon} phon")
+
         # Execute generation
         service = FilterService(filter_config, phon_config, logger)
         count = service.execute()
-        
-        logger.info(f"Generated {count} filter(s) into: {filter_config.output_dir}")
+
+        logger.info(f"Generated {count} filter(s) into: "
+                   f"{filter_config.output_dir}")
         print(f"Generated {count} filter(s) into: {filter_config.output_dir}")
         return 0
-        
+
     except ValidationError as e:
         if logger:
             logger.error(f"Validation error: {e}")
